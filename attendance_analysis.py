@@ -89,6 +89,23 @@ def parse_attendance():
                             attendance_dict[name] = []
                         attendance_dict[name].append((current_date.strftime('%Y-%m-%d'), value))
 
+    # 检查“出差.xlsx”，如果日期在出差，添加到出差列表中
+    xls = pd.ExcelFile("数据源\出差.xlsx")
+    df = pd.read_excel(xls, sheet_name="出差统计")
+    for index, row in df.iterrows():
+        name = row['姓名']
+        start_date = pd.Timestamp(row['起始日期'])
+        end_date = pd.Timestamp(row['结束日期'])
+        days = pd.date_range(start=start_date, end=end_date)
+        for d in days:
+            if name not in attendance_dict:
+                attendance_dict[name] = []
+            att_list = attendance_dict[name]
+            if any([item for item in att_list if item[0] == d.strftime('%Y-%m-%d')]) == False:
+                attendance_dict[name].append((d.strftime('%Y-%m-%d'), "出差"))
+            
+        pass
+
     return attendance_dict, employment_dates_dict
 
 
