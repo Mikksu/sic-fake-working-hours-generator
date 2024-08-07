@@ -88,6 +88,8 @@ print(f'共解析 {len(project_month_range)} 个项目。')
 # Step 3: 按项目分类统计并分配工时
 project_hours = {project: {} for project in projects}
 
+# today
+today = pd.Timestamp.now()
 
 for month in month_list_all_project:
     ts = pd.Timestamp(month)
@@ -107,6 +109,10 @@ for month in month_list_all_project:
 
         # 如果今天是周六或周日，跳过
         if curr_day.dayofweek == 0 or curr_day.dayofweek == 6:
+            continue
+
+        # 如果日期超过今天日期，则不分配工时
+        if curr_day >= today:
             continue
 
         #遍历总项目清单中的每个人
