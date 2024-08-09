@@ -45,7 +45,7 @@ def parse_attendance():
         for index, row in df.iterrows():
             name = row[name_col]
             entry_date = pd.to_datetime(row[entry_date_col], errors='coerce')
-            exit_date = pd.to_datetime(row[exit_date_col], errors='coerce') if pd.notna(row[exit_date_col]) else pd.Timestamp.max
+            exit_date = pd.to_datetime(row[exit_date_col], errors='coerce') if isinstance(row[exit_date_col], pd.Timestamp) and pd.notna(row[exit_date_col]) else pd.Timestamp.max
 
             if pd.isna(entry_date):
                 raise ValueError(f"在工作表 {sheet_name} 的第 {index + 1} 行，姓名为 {name} 的员工入职时间为空。")
@@ -55,6 +55,7 @@ def parse_attendance():
                 employment_dates[name] = {'入职时间': entry_date, '离职时间': exit_date}
             else:
                 employment_dates[name]['入职时间'] = min(employment_dates[name]['入职时间'], entry_date)
+
                 employment_dates[name]['离职时间'] = min(employment_dates[name]['离职时间'], exit_date)
 
 
@@ -62,8 +63,8 @@ def parse_attendance():
         employment_dates_dict = pd.DataFrame.from_dict(employment_dates, orient='index').to_dict('index')
 
         # Convert '入职时间' and '离职时间' to datetime
-        df[entry_date_col] = pd.to_datetime(df[entry_date_col], errors='coerce')
-        df[exit_date_col] = pd.to_datetime(df[exit_date_col], errors='coerce')
+        df[entry_date_col] = pd.to_datetime(df[entry_date_col], format='%Y-%m-%d', errors='coerce')
+        df[exit_date_col] = pd.to_datetime(df[exit_date_col], format='%Y-%m-%d', errors='coerce')
         
         # Process date columns
         for col in df.columns[3:]:

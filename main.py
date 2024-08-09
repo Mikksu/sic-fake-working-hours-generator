@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from attendance_analysis import parse_attendance
+from dep_tech_overtime_hours import parse_dep_tech_overtime
 
 
 #! 注意，先尝试打开输出报表，如果打不开则不做下面的工作，以节省时间
@@ -10,6 +11,9 @@ from attendance_analysis import parse_attendance
 
 print('分析考勤记录...')
 attendance_dict, employment_dates_dict = parse_attendance()
+
+print ('分析加班记录 ...')
+overtime_dict, overtime_name_list = parse_dep_tech_overtime()
 
 print('分配工时 ....')
 
@@ -107,16 +111,34 @@ for month in month_list_all_project:
     for curr_day in days_list:
         print(f'正在分析{curr_day.strftime('%Y-%m-%d')}\r', end='')
 
-        # 如果今天是周六或周日，跳过
-        if curr_day.dayofweek == 0 or curr_day.dayofweek == 6:
-            continue
-
         # 如果日期超过今天日期，则不分配工时
         if curr_day >= today:
             continue
 
         #遍历总项目清单中的每个人
         for person in person_month_project:
+
+            # 如果这个人当天未入职或已离职，则不要统计工时
+            if person in employment_dates_dict:
+                entry_date = employment_dates_dict[person]['入职时间']
+                exit_date = employment_dates_dict[person]['离职时间']
+                if not (entry_date <= curr_day <= exit_date):
+                    continue
+
+            # 检查当天是否在加班，如果有加班，工时算在加班的项目中
+            if person in overtime_dict:
+                overtime = [item for item in overtime_dict if item[0] == curr_day.strftime('%Y-%m-%d')]
+                if len(overtime) > 1:
+                    raise ValueError(f'{person}在{curr_day}有多条加班记录。')
+
+                if any(overtime):
+                    ot_project = overtime[0][1] # 加班项目
+                    project_hours[ot_project][person].append(curr_day) # 添加工时
+
+                    # 当前日期添加工时后，删除掉，因为最后一步处理会给剩余的加班统一添加工时
+                    overtime_dict[project][ot_project].remove(curr_day)
+                    continue
+
 
             # 如果这个人当天没有出勤，则不要统计工时
             if person in attendance_dict:
@@ -125,12 +147,9 @@ for month in month_list_all_project:
                 if any(ret):
                     continue
 
-            # 如果这个人当天未入职或已离职，则不要统计工时
-            if person in employment_dates_dict:
-                entry_date = employment_dates_dict[person]['入职时间']
-                exit_date = employment_dates_dict[person]['离职时间']
-                if not (entry_date <= curr_day <= exit_date):
-                    continue
+            # 如果今天是周六或周日，跳过
+            if curr_day.dayofweek == 5 or curr_day.dayofweek == 6:
+                continue
 
             # 如果这个人在当前月份中没有项目，则跳过
             month_belongs_to = curr_day.replace(day=1)
@@ -153,7 +172,30 @@ for month in month_list_all_project:
             project_hours[chosen_proj][person].append(curr_day)
 
 
+# 解析技术部加班清单，经过上面的处理，剩余的人员应该是没有在工时分配表，仅在加班记录中的
+for person in overtime_dict:
+    for item in overtime_dict[person]:
+        date = item[0]
+        ot_proj_name = item[1]
 
+        existed_proj = [p for p in list(project_hours.keys()) if p.find(ot_proj_name) >= 0]
+        if any(existed_proj):
+            # 加班项目已存在
+            ot_proj_name = existed_proj[0]
+
+            if ot_proj_name not in project_hours:
+                project_hours[ot_proj_name] = {}
+            
+            if person not in project_hours[ot_proj_name]:
+                project_hours[ot_proj_name][person] = []
+        else:
+            # 加班项目不存在
+            project_hours[ot_proj_name] = {}
+            project_hours[ot_proj_name][person] = []
+
+        project_hours[ot_proj_name][person].append(date)
+
+# 导出Excel
 with pd.ExcelWriter("output.xlsx") as writer:
     # 按项目名称创建excel
     for curr_proj in project_hours:
