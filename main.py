@@ -195,7 +195,7 @@ for person in overtime_dict:
 
         project_hours[ot_proj_name][person].append(date)
 
-# 导出Excel
+# 导出Excel财务需要的格式
 with pd.ExcelWriter("output.xlsx") as writer:
     # 按项目名称创建excel
     for curr_proj in project_hours:
